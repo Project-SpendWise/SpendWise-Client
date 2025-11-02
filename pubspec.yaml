@@ -35,6 +35,38 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # UI Component Library
+  shadcn_ui: ^0.2.4
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Charts and Visualizations
+  fl_chart: ^0.69.0
+  syncfusion_flutter_charts: ^31.2.4
+
+  # File Picker
+  file_picker: ^8.0.0+1
+
+  # Typography
+  google_fonts: ^6.1.0
+
+  # Date formatting
+  intl: ^0.20.2
+
+  # Localization
+  flutter_localizations:
+    sdk: flutter
+
+  # Storage
+  shared_preferences: ^2.2.2
+
+  # HTTP Client
+  http: ^1.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -51,6 +83,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
