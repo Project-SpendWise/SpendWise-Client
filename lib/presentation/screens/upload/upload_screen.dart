@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:spendwise_client/l10n/app_localizations.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../widgets/layout/app_scaffold.dart';
 import 'widgets/file_picker_button.dart';
-import 'widgets/upload_progress.dart';
+import 'widgets/file_list_widget.dart';
 
 class UploadScreen extends StatelessWidget {
   const UploadScreen({super.key});
@@ -14,13 +15,13 @@ class UploadScreen extends StatelessWidget {
       title: l10n.uploadStatement,
       currentIndex: 1,
       showBottomNav: false,
-      body: const SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppConstants.spacingLG),
+        child: const Column(
           children: [
             FilePickerButton(),
-            SizedBox(height: 24),
-            UploadProgress(),
+            SizedBox(height: AppConstants.spacingXL),
+            FileListWidget(),
           ],
         ),
       ),

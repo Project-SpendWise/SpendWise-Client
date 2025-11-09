@@ -1,10 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'api_models.dart';
+import '../../../core/constants/api_constants.dart';
 
 class ApiService {
-  // TODO: Replace with actual backend URL
-  static const String baseUrl = 'https://api.spendwise.com/api';
   
   final http.Client _client;
   String? _authToken;
@@ -28,7 +27,7 @@ class ApiService {
   Future<T> get<T>(String endpoint, T Function(Map<String, dynamic>) fromJson) async {
     try {
       final response = await _client.get(
-        Uri.parse('$baseUrl$endpoint'),
+        Uri.parse(ApiConstants.buildUrl(endpoint)),
         headers: _headers,
       );
       return _handleResponse(response, fromJson);
@@ -44,7 +43,24 @@ class ApiService {
   ) async {
     try {
       final response = await _client.post(
-        Uri.parse('$baseUrl$endpoint'),
+        Uri.parse(ApiConstants.buildUrl(endpoint)),
+        headers: _headers,
+        body: body != null ? jsonEncode(body) : null,
+      );
+      return _handleResponse(response, fromJson);
+    } catch (e) {
+      throw ApiError(message: 'Network error: $e');
+    }
+  }
+
+  Future<T> put<T>(
+    String endpoint,
+    Map<String, dynamic>? body,
+    T Function(Map<String, dynamic>) fromJson,
+  ) async {
+    try {
+      final response = await _client.put(
+        Uri.parse(ApiConstants.buildUrl(endpoint)),
         headers: _headers,
         body: body != null ? jsonEncode(body) : null,
       );
@@ -64,7 +80,7 @@ class ApiService {
     try {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseUrl$endpoint'),
+        Uri.parse(ApiConstants.buildUrl(endpoint)),
       );
 
       if (_authToken != null) {
@@ -93,13 +109,28 @@ class ApiService {
     T Function(Map<String, dynamic>) fromJson,
   ) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.body.isEmpty) {
+        return fromJson({});
+      }
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return fromJson(json);
     } else {
       try {
         final errorJson = jsonDecode(response.body) as Map<String, dynamic>;
-        throw ApiError.fromJson(errorJson);
+        // Handle backend error format: { "error": { "message": "...", "statusCode": ..., "errorCode": "..." } }
+        if (errorJson.containsKey('error')) {
+          final errorData = errorJson['error'] as Map<String, dynamic>;
+          throw ApiError(
+            message: errorData['message'] as String? ?? 'An error occurred',
+            statusCode: errorData['statusCode'] as int? ?? response.statusCode,
+            errorCode: errorData['errorCode'] as String?,
+          );
+        } else {
+          // Handle direct error format
+          throw ApiError.fromJson(errorJson);
+        }
       } catch (e) {
+        if (e is ApiError) rethrow;
         throw ApiError(
           message: 'Request failed with status ${response.statusCode}',
           statusCode: response.statusCode,

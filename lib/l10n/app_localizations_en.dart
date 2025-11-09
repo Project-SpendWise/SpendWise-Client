@@ -358,4 +358,115 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get approachingBudget => 'Approaching Budget';
+
+  @override
+  String get login => 'Login';
+
+  @override
+  String get register => 'Register';
+
+  @override
+  String get email => 'Email';
+
+  @override
+  String get password => 'Password';
+
+  @override
+  String get name => 'Name';
+
+  @override
+  String get confirmPassword => 'Confirm Password';
+
+  @override
+  String get forgotPassword => 'Forgot Password?';
+
+  @override
+  String get dontHaveAccount => 'Don\'t have an account?';
+
+  @override
+  String get alreadyHaveAccount => 'Already have an account?';
+
+  @override
+  String get signIn => 'Sign In';
+
+  @override
+  String get signUp => 'Sign Up';
+
+  @override
+  String get signOut => 'Sign Out';
+
+  @override
+  String get invalidEmail => 'Please enter a valid email';
+
+  @override
+  String get passwordTooShort => 'Password must be at least 6 characters';
+
+  @override
+  String get passwordsDoNotMatch => 'Passwords do not match';
+
+  @override
+  String get loginFailed => 'Login failed. Please check your credentials.';
+
+  @override
+  String get registrationFailed => 'Registration failed. Please try again.';
+
+  @override
+  String get welcomeBack => 'Welcome Back';
+
+  @override
+  String get welcomeMessage => 'Sign in to continue';
+
+  @override
+  String get createAccount => 'Create Account';
+
+  @override
+  String get createAccountMessage => 'Sign up to get started';
+
+  @override
+  String get signOutConfirm => 'Are you sure you want to sign out?';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get username => 'Username';
+
+  @override
+  String get firstName => 'First Name';
+
+  @override
+  String get lastName => 'Last Name';
+
+  @override
+  String get optional => 'Optional';
+
+  @override
+  String get editProfile => 'Edit Profile';
+
+  @override
+  String get changePassword => 'Change Password';
+
+  @override
+  String get currentPassword => 'Current Password';
+
+  @override
+  String get newPassword => 'New Password';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get profileUpdated => 'Profile updated successfully';
+
+  @override
+  String get updateFailed => 'Failed to update profile';
+
+  @override
+  String get passwordChanged => 'Password changed successfully';
+
+  @override
+  String get passwordChangeFailed => 'Failed to change password';
+
+  @override
+  String get currentPasswordRequired => 'Current password is required';
 }

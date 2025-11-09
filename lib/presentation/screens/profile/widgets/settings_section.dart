@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:spendwise_client/l10n/app_localizations.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../providers/theme_provider.dart';
 import '../../../../providers/language_provider.dart';
+import '../../../../providers/auth_provider.dart';
 import '../../../widgets/common/custom_card.dart';
+import 'change_password_dialog.dart';
 
 class SettingsSection extends ConsumerWidget {
   const SettingsSection({super.key});
@@ -76,6 +79,17 @@ class SettingsSection extends ConsumerWidget {
           ),
           _Divider(),
           _SettingsItem(
+            icon: Icons.lock_outlined,
+            title: l10n.changePassword,
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => const ChangePasswordDialog(),
+              );
+            },
+          ),
+          _Divider(),
+          _SettingsItem(
             icon: Icons.info_outline,
             title: l10n.about,
             subtitle: '${l10n.version} 1.0.0',
@@ -91,10 +105,36 @@ class SettingsSection extends ConsumerWidget {
           _Divider(),
           _SettingsItem(
             icon: Icons.logout_outlined,
-            title: l10n.logout,
+            title: l10n.signOut,
             titleColor: Colors.red,
-            onTap: () {
-              // Handle logout
+            onTap: () async {
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text(l10n.signOut),
+                  content: Text(l10n.signOutConfirm),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: Text(l10n.cancel),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: Text(
+                        l10n.signOut,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (shouldLogout == true && context.mounted) {
+                await ref.read(authProvider.notifier).logout();
+                if (context.mounted) {
+                  context.go('/login');
+                }
+              }
             },
           ),
         ],

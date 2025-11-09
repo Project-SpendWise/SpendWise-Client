@@ -5,10 +5,10 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../../data/services/upload_service.dart';
-import '../../../../data/mock/mock_data.dart';
-import '../../../../providers/upload_provider.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../providers/file_provider.dart';
 import '../../../../providers/transaction_provider.dart';
+import '../../../../data/mock/mock_data.dart';
 import '../../../widgets/common/custom_button.dart';
 import '../../../widgets/common/custom_card.dart';
 
@@ -16,55 +16,69 @@ class FilePickerButton extends ConsumerWidget {
   const FilePickerButton({super.key});
 
   Future<void> _pickFile(WidgetRef ref, BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf'],
+      allowedExtensions: ['pdf', 'xlsx', 'xls', 'csv', 'docx'],
     );
 
     if (result != null && result.files.single.path != null) {
-      final uploadNotifier = ref.read(uploadProvider.notifier);
       final filePath = result.files.single.path!;
       final fileName = result.files.single.name;
       
-      // Read file bytes for mock upload
+      // Read file bytes
       final file = File(filePath);
       final fileBytes = await file.readAsBytes();
 
-      // Use upload service (mock implementation)
-      final uploadService = UploadService(useMockData: true);
-      
-      uploadNotifier.uploadFile(filePath, fileName);
-      
+      // Check file size (10MB limit)
+      if (fileBytes.length > 10 * 1024 * 1024) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('File size exceeds 10MB limit'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+
       try {
-        // Simulate upload
-        final response = await uploadService.uploadStatement(
+        // Upload file using file service
+        final fileNotifier = ref.read(fileListProvider.notifier);
+        final uploadedFile = await fileNotifier.uploadFile(
           filePath: filePath,
           fileName: fileName,
           fileBytes: fileBytes,
         );
 
-        // Add mock transactions from the uploaded statement
-        final mockTransactions = MockData.getMockTransactions();
-        final transactionNotifier = ref.read(transactionProvider.notifier);
-        transactionNotifier.addTransactions(mockTransactions);
+        if (uploadedFile != null && context.mounted) {
+          // Add mock transactions (until backend processes the file)
+          final mockTransactions = MockData.getMockTransactions();
+          final transactionNotifier = ref.read(transactionProvider.notifier);
+          transactionNotifier.addTransactions(mockTransactions);
 
-        uploadNotifier.resetStatus();
-        
-        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(AppLocalizations.of(context)!.fileProcessed),
-              backgroundColor: Colors.green,
+              content: Text(l10n.fileProcessed),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        } else if (context.mounted) {
+          final error = ref.read(fileListProvider).error;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error ?? l10n.error),
+              backgroundColor: AppColors.error,
             ),
           );
         }
       } catch (e) {
-        uploadNotifier.resetStatus();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${AppLocalizations.of(context)!.error}: $e'),
-              backgroundColor: Colors.red,
+              content: Text('${l10n.error}: $e'),
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -75,7 +89,7 @@ class FilePickerButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final uploadState = ref.watch(uploadProvider);
+    final fileState = ref.watch(fileListProvider);
 
     return CustomCard(
       padding: const EdgeInsets.all(AppConstants.spacingXL),
@@ -104,12 +118,10 @@ class FilePickerButton extends ConsumerWidget {
           CustomButton(
             text: l10n.selectFile,
             icon: Icons.file_upload,
-            onPressed: uploadState.status == UploadStatus.uploading ||
-                    uploadState.status == UploadStatus.processing
+            onPressed: fileState.isLoading
                 ? null
                 : () => _pickFile(ref, context),
-            isLoading: uploadState.status == UploadStatus.uploading ||
-                uploadState.status == UploadStatus.processing,
+            isLoading: fileState.isLoading,
           ),
         ],
       ),

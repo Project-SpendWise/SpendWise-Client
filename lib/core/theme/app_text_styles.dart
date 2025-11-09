@@ -79,6 +79,14 @@ class AppTextStyles {
         color: AppColors.textSecondary,
       );
 
+  // Button Text
+  static TextStyle get button => GoogleFonts.inter(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.5,
+        color: Colors.white,
+      );
+
   // Override methods for dark mode
   static TextStyle h1Dark(Color color) => h1.copyWith(color: color);
   static TextStyle h2Dark(Color color) => h2.copyWith(color: color);

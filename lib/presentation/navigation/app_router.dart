@@ -1,17 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:spendwise_client/l10n/app_localizations.dart';
+import '../../providers/auth_provider.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/upload/upload_screen.dart';
 import '../screens/analytics/analytics_screen.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/auth/login_screen.dart';
+import '../screens/auth/register_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-final router = GoRouter(
-  navigatorKey: navigatorKey,
-  initialLocation: '/home',
-  routes: [
+final routerProvider = Provider<GoRouter>((ref) {
+  // Only watch isAuthenticated to prevent rebuilds on profile updates
+  final isAuthenticated = ref.watch(authProvider.select((state) => state.isAuthenticated));
+
+  return GoRouter(
+    navigatorKey: navigatorKey,
+    initialLocation: isAuthenticated ? '/home' : '/login',
+    redirect: (context, state) {
+      final isLoggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/register';
+      
+      // Don't redirect if we're already on a protected route and authenticated
+      // This prevents unnecessary redirects when profile is updated
+      final isOnProtectedRoute = state.matchedLocation.startsWith('/home') ||
+          state.matchedLocation.startsWith('/upload') ||
+          state.matchedLocation.startsWith('/analytics') ||
+          state.matchedLocation.startsWith('/profile');
+
+      // If not authenticated and trying to access protected route
+      if (!isAuthenticated && !isLoggingIn) {
+        return '/login';
+      }
+
+      // If authenticated and trying to access auth routes
+      if (isAuthenticated && isLoggingIn) {
+        return '/home';
+      }
+
+      // Don't redirect if already on a valid protected route
+      if (isAuthenticated && isOnProtectedRoute) {
+        return null;
+      }
+
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return _NavigationWrapper(navigationShell: navigationShell);
@@ -51,8 +94,9 @@ final router = GoRouter(
         ),
       ],
     ),
-  ],
-);
+    ],
+  );
+});
 
 class _NavigationWrapper extends StatelessWidget {
   final StatefulNavigationShell navigationShell;

@@ -67,6 +67,12 @@ dependencies:
   # HTTP Client
   http: ^1.2.0
 
+  # File Viewing
+  syncfusion_flutter_pdfviewer: ^31.2.5
+  excel: ^4.0.6
+  path_provider: ^2.1.5
+  open_filex: ^4.7.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

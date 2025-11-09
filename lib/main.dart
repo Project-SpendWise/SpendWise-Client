@@ -35,7 +35,7 @@ class SpendWiseApp extends ConsumerWidget {
         Locale('en'),
         Locale('tr'),
       ],
-      routerConfig: router,
+      routerConfig: ref.watch(routerProvider),
     );
   }
 }

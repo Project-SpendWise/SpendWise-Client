@@ -358,4 +358,115 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get approachingBudget => 'Bütçeye Yaklaşıyor';
+
+  @override
+  String get login => 'Giriş Yap';
+
+  @override
+  String get register => 'Kayıt Ol';
+
+  @override
+  String get email => 'E-posta';
+
+  @override
+  String get password => 'Şifre';
+
+  @override
+  String get name => 'İsim';
+
+  @override
+  String get confirmPassword => 'Şifreyi Onayla';
+
+  @override
+  String get forgotPassword => 'Şifremi Unuttum?';
+
+  @override
+  String get dontHaveAccount => 'Hesabınız yok mu?';
+
+  @override
+  String get alreadyHaveAccount => 'Zaten hesabınız var mı?';
+
+  @override
+  String get signIn => 'Giriş Yap';
+
+  @override
+  String get signUp => 'Kayıt Ol';
+
+  @override
+  String get signOut => 'Çıkış Yap';
+
+  @override
+  String get invalidEmail => 'Lütfen geçerli bir e-posta girin';
+
+  @override
+  String get passwordTooShort => 'Şifre en az 6 karakter olmalıdır';
+
+  @override
+  String get passwordsDoNotMatch => 'Şifreler eşleşmiyor';
+
+  @override
+  String get loginFailed => 'Giriş başarısız. Lütfen bilgilerinizi kontrol edin.';
+
+  @override
+  String get registrationFailed => 'Kayıt başarısız. Lütfen tekrar deneyin.';
+
+  @override
+  String get welcomeBack => 'Tekrar Hoş Geldiniz';
+
+  @override
+  String get welcomeMessage => 'Devam etmek için giriş yapın';
+
+  @override
+  String get createAccount => 'Hesap Oluştur';
+
+  @override
+  String get createAccountMessage => 'Başlamak için kayıt olun';
+
+  @override
+  String get signOutConfirm => 'Çıkış yapmak istediğinize emin misiniz?';
+
+  @override
+  String get cancel => 'İptal';
+
+  @override
+  String get username => 'Kullanıcı Adı';
+
+  @override
+  String get firstName => 'Ad';
+
+  @override
+  String get lastName => 'Soyad';
+
+  @override
+  String get optional => 'İsteğe Bağlı';
+
+  @override
+  String get editProfile => 'Profili Düzenle';
+
+  @override
+  String get changePassword => 'Şifre Değiştir';
+
+  @override
+  String get currentPassword => 'Mevcut Şifre';
+
+  @override
+  String get newPassword => 'Yeni Şifre';
+
+  @override
+  String get save => 'Kaydet';
+
+  @override
+  String get profileUpdated => 'Profil başarıyla güncellendi';
+
+  @override
+  String get updateFailed => 'Profil güncellenemedi';
+
+  @override
+  String get passwordChanged => 'Şifre başarıyla değiştirildi';
+
+  @override
+  String get passwordChangeFailed => 'Şifre değiştirilemedi';
+
+  @override
+  String get currentPasswordRequired => 'Mevcut şifre gereklidir';
 }
