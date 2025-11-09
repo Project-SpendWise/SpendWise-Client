@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spendwise_client/l10n/app_localizations.dart';
 import 'package:file_picker/file_picker.dart';
@@ -10,6 +11,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/file_model.dart';
+import '../../../../data/services/api_models.dart';
 import '../../../../providers/file_provider.dart';
 import '../../../widgets/common/custom_card.dart';
 import '../../../widgets/common/empty_state.dart';
@@ -78,9 +80,17 @@ class FileListWidget extends ConsumerWidget {
       }
 
       final fileNotifier = ref.read(fileListProvider.notifier);
+      
+      // Show error from provider if any
+      final currentError = ref.read(fileListProvider).error;
+      if (currentError != null) {
+        debugPrint('File provider error: $currentError');
+      }
+      
       final fileBytes = await fileNotifier.downloadFile(file.id);
 
-      if (fileBytes != null) {
+      if (fileBytes != null && fileBytes.isNotEmpty) {
+        debugPrint('File downloaded successfully: ${fileBytes.length} bytes');
         // Try to save to Downloads folder first (Android) or Documents (iOS)
         Directory? targetDirectory;
         try {
@@ -189,20 +199,33 @@ class FileListWidget extends ConsumerWidget {
         }
       } else {
         if (context.mounted) {
+          final error = ref.read(fileListProvider).error;
+          final errorMessage = error ?? 'Failed to download file: No data received';
+          debugPrint('Download failed: $errorMessage');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(l10n.error),
+              content: Text(errorMessage),
               backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 5),
             ),
           );
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Download exception: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (context.mounted) {
+        String errorMessage;
+        if (e is ApiError) {
+          errorMessage = e.message;
+        } else {
+          errorMessage = e.toString();
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${l10n.error}: $e'),
+            content: Text('${l10n.error}: $errorMessage'),
             backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 5),
           ),
         );
       }

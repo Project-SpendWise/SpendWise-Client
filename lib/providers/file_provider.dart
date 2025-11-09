@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/file_model.dart';
 import '../data/services/file_service.dart';
+import '../data/services/api_models.dart';
 import 'auth_provider.dart';
 
 class FileListState {
@@ -172,13 +174,32 @@ class FileListNotifier extends StateNotifier<FileListState> {
     try {
       final accessToken = _ref.read(authProvider).accessToken;
       if (accessToken == null) {
+        state = state.copyWith(error: 'Not authenticated');
         return null;
       }
 
       _fileService.setAuthToken(accessToken);
-      return await _fileService.downloadFile(fileId);
-    } catch (e) {
-      state = state.copyWith(error: e.toString());
+      final bytes = await _fileService.downloadFile(fileId);
+      
+      if (bytes == null || bytes.isEmpty) {
+        state = state.copyWith(error: 'Downloaded file is empty');
+        return null;
+      }
+      
+      // Clear any previous errors on success
+      state = state.copyWith(error: null);
+      return bytes;
+    } catch (e, stackTrace) {
+      String errorMessage;
+      if (e is ApiError) {
+        errorMessage = e.message;
+        debugPrint('File download ApiError: ${e.message} (status: ${e.statusCode}, code: ${e.errorCode})');
+      } else {
+        errorMessage = e.toString();
+        debugPrint('File download error: $errorMessage');
+      }
+      debugPrint('Stack trace: $stackTrace');
+      state = state.copyWith(error: errorMessage);
       return null;
     }
   }

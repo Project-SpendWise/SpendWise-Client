@@ -149,7 +149,7 @@ class FinancialInsight {
   }
 }
 
-class ApiError {
+class ApiError implements Exception {
   final String message;
   final int? statusCode;
   final String? errorCode;
@@ -166,6 +166,16 @@ class ApiError {
       statusCode: json['statusCode'] as int?,
       errorCode: json['errorCode'] as String?,
     );
+  }
+
+  @override
+  String toString() {
+    if (statusCode != null && errorCode != null) {
+      return '$message (Status: $statusCode, Code: $errorCode)';
+    } else if (statusCode != null) {
+      return '$message (Status: $statusCode)';
+    }
+    return message;
   }
 }
 
