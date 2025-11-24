@@ -2,11 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/budget.dart';
 import '../data/models/transaction.dart';
 import '../data/models/category.dart';
-import '../data/mock/mock_data.dart';
 import 'transaction_provider.dart';
 
 class BudgetNotifier extends StateNotifier<List<Budget>> {
-  BudgetNotifier() : super(MockData.getMockBudgets());
+  BudgetNotifier() : super([]);
 
   void addBudget(Budget budget) {
     state = [...state, budget];
@@ -18,6 +17,10 @@ class BudgetNotifier extends StateNotifier<List<Budget>> {
 
   void removeBudget(String id) {
     state = state.where((b) => b.id != id).toList();
+  }
+
+  void clearBudgets() {
+    state = [];
   }
 
   Budget? getBudgetForCategory(String categoryId, BudgetPeriod period) {

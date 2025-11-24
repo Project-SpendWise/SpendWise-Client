@@ -39,10 +39,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context.go('/home');
       } else if (mounted) {
         final l10n = AppLocalizations.of(context)!;
+        final authState = ref.read(authProvider);
+        final errorMessage = authState.error ?? l10n.loginFailed;
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n.loginFailed),
+            content: Text(errorMessage),
             backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       }

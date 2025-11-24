@@ -7,12 +7,13 @@ class TransactionService {
   final ApiService _apiService;
   final bool _useMockData;
 
-  TransactionService({ApiService? apiService, bool useMockData = true})
+  TransactionService({ApiService? apiService, bool useMockData = false})
       : _apiService = apiService ?? ApiService(),
         _useMockData = useMockData;
 
   /// Get all transactions with optional filters
   Future<List<Transaction>> getTransactions({
+    String? statementId,
     DateTime? startDate,
     DateTime? endDate,
     String? category,
@@ -25,6 +26,7 @@ class TransactionService {
       var transactions = MockData.getMockTransactions();
 
       // Apply filters
+      // Note: statementId filter is ignored in mock mode since mock data doesn't have statementId
       if (startDate != null) {
         transactions = transactions
             .where((t) => t.date.isAfter(startDate) || t.date.isAtSameMomentAs(startDate))
@@ -55,6 +57,7 @@ class TransactionService {
 
     // Build query parameters
     final queryParams = <String, String>{};
+    if (statementId != null) queryParams['statementId'] = statementId;
     if (startDate != null) {
       queryParams['startDate'] = startDate.toIso8601String();
     }
@@ -70,12 +73,14 @@ class TransactionService {
     final endpoint = '/transactions${queryString.isNotEmpty ? '?$queryString' : ''}';
 
     // Real API call
-    final response = await _apiService.get<List<dynamic>>(
+    final response = await _apiService.get<Map<String, dynamic>>(
       endpoint,
-      (json) => (json['transactions'] as List).map((e) => e as Map<String, dynamic>).toList(),
+      (json) => json,
     );
 
-    return response.map((json) => _transactionFromJson(json)).toList();
+    // Response format: { "transactions": [...], "total": ..., "limit": ..., "offset": ... }
+    final transactionsList = response['transactions'] as List<dynamic>;
+    return transactionsList.map((json) => _transactionFromJson(json as Map<String, dynamic>)).toList();
   }
 
   Transaction _transactionFromJson(Map<String, dynamic> json) {
@@ -92,6 +97,7 @@ class TransactionService {
 
   /// Get transaction summary
   Future<Map<String, dynamic>> getSummary({
+    String? statementId,
     DateTime? startDate,
     DateTime? endDate,
   }) async {
@@ -99,6 +105,7 @@ class TransactionService {
       await Future.delayed(const Duration(milliseconds: 300));
       final transactions = MockData.getMockTransactions();
       
+      // Note: statementId filter is ignored in mock mode since mock data doesn't have statementId
       final income = transactions
           .where((t) => t.type == TransactionType.income)
           .fold<double>(0.0, (sum, t) => sum + t.amount);
@@ -117,6 +124,7 @@ class TransactionService {
 
     // Real API call
     final queryParams = <String, String>{};
+    if (statementId != null) queryParams['statementId'] = statementId;
     if (startDate != null) {
       queryParams['startDate'] = startDate.toIso8601String();
     }
@@ -127,6 +135,7 @@ class TransactionService {
     final queryString = Uri(queryParameters: queryParams).query;
     final endpoint = '/transactions/summary${queryString.isNotEmpty ? '?$queryString' : ''}';
 
+    // Response format: { "totalIncome": ..., "totalExpenses": ..., "savings": ..., "transactionCount": ..., "period": {...} }
     return await _apiService.get<Map<String, dynamic>>(
       endpoint,
       (json) => json,

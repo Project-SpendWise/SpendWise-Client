@@ -58,10 +58,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         context.go('/home');
       } else if (mounted) {
         final l10n = AppLocalizations.of(context)!;
+        final authState = ref.read(authProvider);
+        final errorMessage = authState.error ?? l10n.registrationFailed;
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n.registrationFailed),
+            content: Text(errorMessage),
             backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       }

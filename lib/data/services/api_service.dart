@@ -3,15 +3,24 @@ import 'package:http/http.dart' as http;
 import 'api_models.dart';
 import '../../../core/constants/api_constants.dart';
 
+typedef TokenRefreshCallback = Future<String?> Function();
+
 class ApiService {
   
   final http.Client _client;
   String? _authToken;
+  TokenRefreshCallback? _tokenRefreshCallback;
 
-  ApiService({http.Client? client}) : _client = client ?? http.Client();
+  ApiService({http.Client? client, TokenRefreshCallback? tokenRefreshCallback}) 
+      : _client = client ?? http.Client(),
+        _tokenRefreshCallback = tokenRefreshCallback;
 
   void setAuthToken(String token) {
     _authToken = token;
+  }
+
+  void setTokenRefreshCallback(TokenRefreshCallback callback) {
+    _tokenRefreshCallback = callback;
   }
 
   Map<String, String> get _headers {
@@ -30,8 +39,9 @@ class ApiService {
         Uri.parse(ApiConstants.buildUrl(endpoint)),
         headers: _headers,
       );
-      return _handleResponse(response, fromJson);
+      return await _handleResponseWithRetry(response, fromJson, () => get(endpoint, fromJson));
     } catch (e) {
+      if (e is ApiError) rethrow;
       throw ApiError(message: 'Network error: $e');
     }
   }
@@ -47,8 +57,9 @@ class ApiService {
         headers: _headers,
         body: body != null ? jsonEncode(body) : null,
       );
-      return _handleResponse(response, fromJson);
+      return await _handleResponseWithRetry(response, fromJson, () => post(endpoint, body, fromJson));
     } catch (e) {
+      if (e is ApiError) rethrow;
       throw ApiError(message: 'Network error: $e');
     }
   }
@@ -64,8 +75,25 @@ class ApiService {
         headers: _headers,
         body: body != null ? jsonEncode(body) : null,
       );
-      return _handleResponse(response, fromJson);
+      return await _handleResponseWithRetry(response, fromJson, () => put(endpoint, body, fromJson));
     } catch (e) {
+      if (e is ApiError) rethrow;
+      throw ApiError(message: 'Network error: $e');
+    }
+  }
+
+  Future<T> delete<T>(
+    String endpoint,
+    T Function(Map<String, dynamic>) fromJson,
+  ) async {
+    try {
+      final response = await _client.delete(
+        Uri.parse(ApiConstants.buildUrl(endpoint)),
+        headers: _headers,
+      );
+      return await _handleResponseWithRetry(response, fromJson, () => delete(endpoint, fromJson));
+    } catch (e) {
+      if (e is ApiError) rethrow;
       throw ApiError(message: 'Network error: $e');
     }
   }
@@ -75,8 +103,9 @@ class ApiService {
     String fieldName,
     List<int> fileBytes,
     String fileName,
-    T Function(Map<String, dynamic>) fromJson,
-  ) async {
+    T Function(Map<String, dynamic>) fromJson, {
+    Map<String, String>? fields,
+  }) async {
     try {
       final request = http.MultipartRequest(
         'POST',
@@ -95,42 +124,135 @@ class ApiService {
         ),
       );
 
+      // Add additional fields if provided
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+
       final streamedResponse = await _client.send(request);
       final response = await http.Response.fromStream(streamedResponse);
 
-      return _handleResponse(response, fromJson);
+      return await _handleResponseWithRetry(
+        response, 
+        fromJson, 
+        () => postMultipart(endpoint, fieldName, fileBytes, fileName, fromJson, fields: fields),
+      );
     } catch (e) {
+      if (e is ApiError) rethrow;
       throw ApiError(message: 'Network error: $e');
     }
+  }
+
+  Future<T> _handleResponseWithRetry<T>(
+    http.Response response,
+    T Function(Map<String, dynamic>) fromJson,
+    Future<T> Function() retryRequest,
+  ) async {
+    // Check if we got a 401 TOKEN_EXPIRED error
+    if (response.statusCode == 401 && _tokenRefreshCallback != null) {
+      try {
+        if (response.body.isNotEmpty) {
+          final json = jsonDecode(response.body) as Map<String, dynamic>;
+          final errorCode = json['error']?['code'] as String? ?? 
+                          json['error']?['errorCode'] as String?;
+          
+          if (errorCode == 'TOKEN_EXPIRED') {
+            // Try to refresh token
+            final newToken = await _tokenRefreshCallback!();
+            if (newToken != null) {
+              // Update token and retry request
+              _authToken = newToken;
+              return await retryRequest();
+            }
+          }
+        } else {
+          // Empty body but 401 - might be token expired, try refresh anyway
+          final newToken = await _tokenRefreshCallback!();
+          if (newToken != null) {
+            _authToken = newToken;
+            return await retryRequest();
+          }
+        }
+      } catch (e) {
+        // If parsing fails, continue with normal error handling
+        print('Error parsing 401 response: $e');
+      }
+    }
+    
+    // Normal response handling
+    return _handleResponse(response, fromJson);
   }
 
   T _handleResponse<T>(
     http.Response response,
     T Function(Map<String, dynamic>) fromJson,
   ) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) {
+    if (response.body.isEmpty) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return fromJson({});
+      } else {
+        throw ApiError(
+          message: 'Request failed with status ${response.statusCode}',
+          statusCode: response.statusCode,
+        );
       }
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return fromJson(json);
-    } else {
-      try {
-        final errorJson = jsonDecode(response.body) as Map<String, dynamic>;
-        // Handle backend error format: { "error": { "message": "...", "statusCode": ..., "errorCode": "..." } }
-        if (errorJson.containsKey('error')) {
-          final errorData = errorJson['error'] as Map<String, dynamic>;
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    
+    // Check for success field (backend format)
+    if (json.containsKey('success')) {
+      final success = json['success'] as bool? ?? false;
+      
+      if (!success) {
+        // Handle error response: { "success": false, "error": {...} }
+        if (json.containsKey('error')) {
+          final errorData = json['error'] as Map<String, dynamic>;
           throw ApiError(
             message: errorData['message'] as String? ?? 'An error occurred',
             statusCode: errorData['statusCode'] as int? ?? response.statusCode,
-            errorCode: errorData['errorCode'] as String?,
+            errorCode: errorData['code'] as String? ?? errorData['errorCode'] as String?,
           );
         } else {
-          // Handle direct error format
-          throw ApiError.fromJson(errorJson);
+          throw ApiError(
+            message: 'Request failed',
+            statusCode: response.statusCode,
+          );
         }
-      } catch (e) {
-        if (e is ApiError) rethrow;
+      }
+      
+      // Success response: extract data field
+      if (json.containsKey('data')) {
+        final data = json['data'] as Map<String, dynamic>;
+        return fromJson(data);
+      } else {
+        // Some endpoints might return data directly
+        return fromJson(json);
+      }
+    }
+    
+    // Handle non-standard responses (backward compatibility)
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      // Check if response has error field (old format)
+      if (json.containsKey('error')) {
+        final errorData = json['error'] as Map<String, dynamic>;
+        throw ApiError(
+          message: errorData['message'] as String? ?? 'An error occurred',
+          statusCode: errorData['statusCode'] as int? ?? response.statusCode,
+          errorCode: errorData['code'] as String? ?? errorData['errorCode'] as String?,
+        );
+      }
+      return fromJson(json);
+    } else {
+      // Error response
+      if (json.containsKey('error')) {
+        final errorData = json['error'] as Map<String, dynamic>;
+        throw ApiError(
+          message: errorData['message'] as String? ?? 'An error occurred',
+          statusCode: errorData['statusCode'] as int? ?? response.statusCode,
+          errorCode: errorData['code'] as String? ?? errorData['errorCode'] as String?,
+        );
+      } else {
         throw ApiError(
           message: 'Request failed with status ${response.statusCode}',
           statusCode: response.statusCode,

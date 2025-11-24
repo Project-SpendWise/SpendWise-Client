@@ -4,6 +4,7 @@ import 'package:spendwise_client/l10n/app_localizations.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../core/utils/app_initializer.dart';
+import '../../../providers/profile_provider.dart';
 import '../../widgets/layout/app_scaffold.dart';
 import 'widgets/overview_cards.dart';
 import 'widgets/expense_chart.dart';
@@ -22,17 +23,31 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  String? _lastProfileId;
+
   @override
   void initState() {
     super.initState();
     // Initialize mock data when home screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppInitializer.initialize(ref);
+      final profileState = ref.read(profileProvider);
+      _lastProfileId = profileState.selectedProfileId;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Watch profile provider to reload data when profile changes
+    final profileState = ref.watch(profileProvider);
+    if (profileState.selectedProfileId != _lastProfileId) {
+      _lastProfileId = profileState.selectedProfileId;
+      // Reload data when profile changes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AppInitializer.reloadData(ref);
+      });
+    }
+
     final l10n = AppLocalizations.of(context)!;
 
     return AppScaffold(

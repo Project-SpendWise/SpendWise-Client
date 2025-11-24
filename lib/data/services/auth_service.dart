@@ -51,11 +51,23 @@ class AuthService {
       body: jsonEncode(body),
     );
 
+    // Debug: Print response for troubleshooting
+    print('Register Response Status: ${response.statusCode}');
+    print('Register Response Body: ${response.body}');
+
     if (response.statusCode == 201) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = json['data'] as Map<String, dynamic>;
-      final userJson = data['user'] as Map<String, dynamic>;
       
+      // Handle response format: { "success": true, "data": {...} }
+      Map<String, dynamic> data;
+      if (json.containsKey('success') && json['success'] == true) {
+        data = json['data'] as Map<String, dynamic>;
+      } else {
+        // Fallback for non-standard format
+        data = json.containsKey('data') ? json['data'] as Map<String, dynamic> : json;
+      }
+      
+      final userJson = data['user'] as Map<String, dynamic>;
       final user = User.fromJson(userJson);
       
       // For registration, we need to login to get tokens
@@ -63,19 +75,41 @@ class AuthService {
       // For now, we'll login after registration
       return await login(email: email, password: password);
     } else {
-      final errorJson = jsonDecode(response.body) as Map<String, dynamic>;
-      if (errorJson.containsKey('error')) {
-        final errorData = errorJson['error'] as Map<String, dynamic>;
+      try {
+        final errorJson = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        // Handle backend error format: { "success": false, "error": {...} }
+        if (errorJson.containsKey('success') && !(errorJson['success'] as bool? ?? true)) {
+          if (errorJson.containsKey('error')) {
+            final errorData = errorJson['error'] as Map<String, dynamic>;
+            throw ApiError(
+              message: errorData['message'] as String? ?? 'Registration failed',
+              statusCode: errorData['statusCode'] as int? ?? response.statusCode,
+              errorCode: errorData['code'] as String? ?? errorData['errorCode'] as String?,
+            );
+          }
+        } else if (errorJson.containsKey('error')) {
+          final errorData = errorJson['error'] as Map<String, dynamic>;
+          throw ApiError(
+            message: errorData['message'] as String? ?? 'Registration failed',
+            statusCode: errorData['statusCode'] as int? ?? response.statusCode,
+            errorCode: errorData['code'] as String? ?? errorData['errorCode'] as String?,
+          );
+        }
+        
+        // Try to get message from top level
         throw ApiError(
-          message: errorData['message'] as String? ?? 'Registration failed',
+          message: errorJson['message'] as String? ?? 'Registration failed. Please try again.',
           statusCode: response.statusCode,
-          errorCode: errorData['errorCode'] as String?,
+        );
+      } catch (e) {
+        if (e is ApiError) rethrow;
+        // If JSON parsing fails, return generic error
+        throw ApiError(
+          message: 'Registration failed. Please check your information and try again.',
+          statusCode: response.statusCode,
         );
       }
-      throw ApiError(
-        message: 'Registration failed',
-        statusCode: response.statusCode,
-      );
     }
   }
 
@@ -93,9 +127,21 @@ class AuthService {
       }),
     );
 
+    // Debug: Print response for troubleshooting
+    print('Login Response Status: ${response.statusCode}');
+    print('Login Response Body: ${response.body}');
+
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = json['data'] as Map<String, dynamic>;
+      
+      // Handle response format: { "success": true, "data": {...} }
+      Map<String, dynamic> data;
+      if (json.containsKey('success') && json['success'] == true) {
+        data = json['data'] as Map<String, dynamic>;
+      } else {
+        // Fallback for non-standard format
+        data = json.containsKey('data') ? json['data'] as Map<String, dynamic> : json;
+      }
       
       final accessToken = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
@@ -109,19 +155,41 @@ class AuthService {
         refreshToken: refreshToken,
       );
     } else {
-      final errorJson = jsonDecode(response.body) as Map<String, dynamic>;
-      if (errorJson.containsKey('error')) {
-        final errorData = errorJson['error'] as Map<String, dynamic>;
+      try {
+        final errorJson = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        // Handle backend error format: { "success": false, "error": {...} }
+        if (errorJson.containsKey('success') && !(errorJson['success'] as bool? ?? true)) {
+          if (errorJson.containsKey('error')) {
+            final errorData = errorJson['error'] as Map<String, dynamic>;
+            throw ApiError(
+              message: errorData['message'] as String? ?? 'Login failed',
+              statusCode: errorData['statusCode'] as int? ?? response.statusCode,
+              errorCode: errorData['code'] as String? ?? errorData['errorCode'] as String?,
+            );
+          }
+        } else if (errorJson.containsKey('error')) {
+          final errorData = errorJson['error'] as Map<String, dynamic>;
+          throw ApiError(
+            message: errorData['message'] as String? ?? 'Login failed',
+            statusCode: errorData['statusCode'] as int? ?? response.statusCode,
+            errorCode: errorData['code'] as String? ?? errorData['errorCode'] as String?,
+          );
+        }
+        
+        // Try to get message from top level
         throw ApiError(
-          message: errorData['message'] as String? ?? 'Login failed',
+          message: errorJson['message'] as String? ?? 'Login failed. Please check your credentials.',
           statusCode: response.statusCode,
-          errorCode: errorData['errorCode'] as String?,
+        );
+      } catch (e) {
+        if (e is ApiError) rethrow;
+        // If JSON parsing fails, return generic error
+        throw ApiError(
+          message: 'Login failed. Please check your credentials and try again.',
+          statusCode: response.statusCode,
         );
       }
-      throw ApiError(
-        message: 'Login failed',
-        statusCode: response.statusCode,
-      );
     }
   }
 
@@ -202,7 +270,15 @@ class AuthService {
 
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = json['data'] as Map<String, dynamic>;
+      
+      // Handle response format: { "success": true, "data": {...} }
+      Map<String, dynamic> data;
+      if (json.containsKey('success') && json['success'] == true) {
+        data = json['data'] as Map<String, dynamic>;
+      } else {
+        // Fallback for non-standard format
+        data = json.containsKey('data') ? json['data'] as Map<String, dynamic> : json;
+      }
       
       final accessToken = data['access_token'] as String;
       final newRefreshToken = data['refresh_token'] as String;
@@ -218,16 +294,28 @@ class AuthService {
       );
     } else {
       final errorJson = jsonDecode(response.body) as Map<String, dynamic>;
-      if (errorJson.containsKey('error')) {
+      
+      // Handle backend error format: { "success": false, "error": {...} }
+      if (errorJson.containsKey('success') && !(errorJson['success'] as bool? ?? true)) {
+        if (errorJson.containsKey('error')) {
+          final errorData = errorJson['error'] as Map<String, dynamic>;
+          throw ApiError(
+            message: errorData['message'] as String? ?? 'Token refresh failed',
+            statusCode: errorData['statusCode'] as int? ?? response.statusCode,
+            errorCode: errorData['code'] as String? ?? errorData['errorCode'] as String?,
+          );
+        }
+      } else if (errorJson.containsKey('error')) {
         final errorData = errorJson['error'] as Map<String, dynamic>;
         throw ApiError(
           message: errorData['message'] as String? ?? 'Token refresh failed',
-          statusCode: response.statusCode,
-          errorCode: errorData['errorCode'] as String?,
+          statusCode: errorData['statusCode'] as int? ?? response.statusCode,
+          errorCode: errorData['code'] as String? ?? errorData['errorCode'] as String?,
         );
       }
+      
       throw ApiError(
-        message: 'Token refresh failed',
+        message: errorJson['message'] as String? ?? 'Token refresh failed',
         statusCode: response.statusCode,
       );
     }

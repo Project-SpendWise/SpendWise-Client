@@ -8,12 +8,13 @@ class AnalyticsService {
   final ApiService _apiService;
   final bool _useMockData;
 
-  AnalyticsService({ApiService? apiService, bool useMockData = true})
+  AnalyticsService({ApiService? apiService, bool useMockData = false})
       : _apiService = apiService ?? ApiService(),
         _useMockData = useMockData;
 
   /// Get category breakdown
   Future<List<CategoryBreakdownResponse>> getCategoryBreakdown({
+    String? statementId,
     DateTime? startDate,
     DateTime? endDate,
   }) async {
@@ -44,6 +45,7 @@ class AnalyticsService {
 
     // Real API call
     final queryParams = <String, String>{};
+    if (statementId != null) queryParams['statementId'] = statementId;
     if (startDate != null) {
       queryParams['startDate'] = startDate.toIso8601String();
     }
@@ -54,16 +56,19 @@ class AnalyticsService {
     final queryString = Uri(queryParameters: queryParams).query;
     final endpoint = '/analytics/categories${queryString.isNotEmpty ? '?$queryString' : ''}';
 
-    final response = await _apiService.get<List<dynamic>>(
+    final response = await _apiService.get<Map<String, dynamic>>(
       endpoint,
-      (json) => (json['categories'] as List).map((e) => e as Map<String, dynamic>).toList(),
+      (json) => json,
     );
 
-    return response.map((json) => CategoryBreakdownResponse.fromJson(json)).toList();
+    // Response format: { "categories": [...], "totalExpenses": ... }
+    final categoriesList = response['categories'] as List<dynamic>;
+    return categoriesList.map((json) => CategoryBreakdownResponse.fromJson(json as Map<String, dynamic>)).toList();
   }
 
   /// Get spending trends
   Future<List<SpendingTrendsResponse>> getSpendingTrends({
+    String? statementId,
     DateTime? startDate,
     DateTime? endDate,
     String period = 'day', // 'day', 'week', 'month'
@@ -97,6 +102,7 @@ class AnalyticsService {
 
     // Real API call
     final queryParams = <String, String>{'period': period};
+    if (statementId != null) queryParams['statementId'] = statementId;
     if (startDate != null) {
       queryParams['startDate'] = startDate.toIso8601String();
     }
@@ -107,16 +113,19 @@ class AnalyticsService {
     final queryString = Uri(queryParameters: queryParams).query;
     final endpoint = '/analytics/trends${queryString.isNotEmpty ? '?$queryString' : ''}';
 
-    final response = await _apiService.get<List<dynamic>>(
+    final response = await _apiService.get<Map<String, dynamic>>(
       endpoint,
-      (json) => (json['trends'] as List).map((e) => e as Map<String, dynamic>).toList(),
+      (json) => json,
     );
 
-    return response.map((json) => SpendingTrendsResponse.fromJson(json)).toList();
+    // Response format: { "trends": [...], "period": "day" }
+    final trendsList = response['trends'] as List<dynamic>;
+    return trendsList.map((json) => SpendingTrendsResponse.fromJson(json as Map<String, dynamic>)).toList();
   }
 
   /// Get financial insights
   Future<List<FinancialInsight>> getFinancialInsights({
+    String? statementId,
     DateTime? startDate,
     DateTime? endDate,
   }) async {
@@ -191,6 +200,7 @@ class AnalyticsService {
 
     // Real API call
     final queryParams = <String, String>{};
+    if (statementId != null) queryParams['statementId'] = statementId;
     if (startDate != null) {
       queryParams['startDate'] = startDate.toIso8601String();
     }
@@ -201,12 +211,149 @@ class AnalyticsService {
     final queryString = Uri(queryParameters: queryParams).query;
     final endpoint = '/analytics/insights${queryString.isNotEmpty ? '?$queryString' : ''}';
 
-    final response = await _apiService.get<List<dynamic>>(
+    final response = await _apiService.get<Map<String, dynamic>>(
       endpoint,
-      (json) => (json['insights'] as List).map((e) => e as Map<String, dynamic>).toList(),
+      (json) => json,
     );
 
-    return response.map((json) => FinancialInsight.fromJson(json)).toList();
+    // Response format: { "insights": [...] }
+    final insightsList = response['insights'] as List<dynamic>;
+    return insightsList.map((json) => FinancialInsight.fromJson(json as Map<String, dynamic>)).toList();
+  }
+
+  /// Get monthly trends
+  Future<List<Map<String, dynamic>>> getMonthlyTrends({
+    String? statementId,
+    int? months,
+  }) async {
+    if (_useMockData) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      // Return empty for now - will be calculated from transactions
+      return [];
+    }
+
+    final queryParams = <String, String>{};
+    if (statementId != null) queryParams['statementId'] = statementId;
+    if (months != null) queryParams['months'] = months.toString();
+
+    final queryString = Uri(queryParameters: queryParams).query;
+    final endpoint = '/analytics/monthly-trends${queryString.isNotEmpty ? '?$queryString' : ''}';
+
+    final response = await _apiService.get<Map<String, dynamic>>(
+      endpoint,
+      (json) => json,
+    );
+
+    // Response format: { "monthlyData": [...] }
+    final monthlyData = response['monthlyData'] as List<dynamic>;
+    return monthlyData.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  /// Get category trends over time
+  Future<List<Map<String, dynamic>>> getCategoryTrends({
+    String? statementId,
+    int? topCategories,
+    int? months,
+  }) async {
+    if (_useMockData) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      return [];
+    }
+
+    final queryParams = <String, String>{};
+    if (statementId != null) queryParams['statementId'] = statementId;
+    if (topCategories != null) queryParams['topCategories'] = topCategories.toString();
+    if (months != null) queryParams['months'] = months.toString();
+
+    final queryString = Uri(queryParameters: queryParams).query;
+    final endpoint = '/analytics/category-trends${queryString.isNotEmpty ? '?$queryString' : ''}';
+
+    final response = await _apiService.get<Map<String, dynamic>>(
+      endpoint,
+      (json) => json,
+    );
+
+    // Response format: { "categoryTrends": [...] }
+    final categoryTrends = response['categoryTrends'] as List<dynamic>;
+    return categoryTrends.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  /// Get weekly patterns
+  Future<List<Map<String, dynamic>>> getWeeklyPatterns({
+    String? statementId,
+    int? weeks,
+  }) async {
+    if (_useMockData) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      return [];
+    }
+
+    final queryParams = <String, String>{};
+    if (statementId != null) queryParams['statementId'] = statementId;
+    if (weeks != null) queryParams['weeks'] = weeks.toString();
+
+    final queryString = Uri(queryParameters: queryParams).query;
+    final endpoint = '/analytics/weekly-patterns${queryString.isNotEmpty ? '?$queryString' : ''}';
+
+    final response = await _apiService.get<Map<String, dynamic>>(
+      endpoint,
+      (json) => json,
+    );
+
+    // Response format: { "patterns": [...] }
+    final patterns = response['patterns'] as List<dynamic>;
+    return patterns.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  /// Get year-over-year comparison
+  Future<List<Map<String, dynamic>>> getYearOverYear({
+    String? statementId,
+    int? year,
+  }) async {
+    if (_useMockData) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      return [];
+    }
+
+    final queryParams = <String, String>{};
+    if (statementId != null) queryParams['statementId'] = statementId;
+    if (year != null) queryParams['year'] = year.toString();
+
+    final queryString = Uri(queryParameters: queryParams).query;
+    final endpoint = '/analytics/year-over-year${queryString.isNotEmpty ? '?$queryString' : ''}';
+
+    final response = await _apiService.get<Map<String, dynamic>>(
+      endpoint,
+      (json) => json,
+    );
+
+    // Response format: { "comparisons": [...] }
+    final comparisons = response['comparisons'] as List<dynamic>;
+    return comparisons.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  /// Get spending forecast
+  Future<Map<String, dynamic>> getForecast({
+    String? statementId,
+  }) async {
+    if (_useMockData) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      return {};
+    }
+
+    final queryParams = <String, String>{};
+    if (statementId != null) queryParams['statementId'] = statementId;
+
+    final queryString = Uri(queryParameters: queryParams).query;
+    final endpoint = '/analytics/forecast${queryString.isNotEmpty ? '?$queryString' : ''}';
+
+    final response = await _apiService.get<Map<String, dynamic>>(
+      endpoint,
+      (json) => json,
+    );
+
+    // Response format: { "forecast": {...} }
+    return response['forecast'] as Map<String, dynamic>;
   }
 }
 

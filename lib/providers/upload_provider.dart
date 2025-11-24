@@ -1,5 +1,10 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/statement.dart';
+import '../data/services/upload_service.dart';
+import '../data/services/api_service.dart';
+import 'auth_provider.dart';
+import 'profile_provider.dart';
 
 enum UploadStatus { idle, uploading, processing, success, error }
 
@@ -32,46 +37,147 @@ class UploadState {
 }
 
 class UploadNotifier extends StateNotifier<UploadState> {
-  UploadNotifier() : super(UploadState());
+  final UploadService _uploadService;
 
-  Future<void> uploadFile(String filePath, String fileName) async {
+  UploadNotifier(this._uploadService) : super(UploadState()) {
+    loadStatements();
+  }
+
+  /// Load statements from backend
+  Future<void> loadStatements() async {
+    try {
+      final statements = await _uploadService.getStatements();
+      state = state.copyWith(statements: statements);
+    } catch (e) {
+      // If loading fails, continue with empty list
+      print('Failed to load statements: $e');
+    }
+  }
+
+  Future<void> uploadFile(
+    String filePath,
+    String fileName, {
+    String? profileName,
+    String? profileDescription,
+    String? accountType,
+    String? bankName,
+    String? color,
+    String? icon,
+  }) async {
     state = state.copyWith(
       status: UploadStatus.uploading,
       progress: 0.0,
+      errorMessage: null,
     );
 
     try {
+      // Read file bytes
+      final file = File(filePath);
+      final fileBytes = await file.readAsBytes();
+
       // Simulate upload progress
-      for (double i = 0; i <= 1.0; i += 0.1) {
+      for (double i = 0; i <= 0.9; i += 0.1) {
         await Future.delayed(const Duration(milliseconds: 100));
-        state = state.copyWith(progress: i);
+        if (state.status == UploadStatus.uploading) {
+          state = state.copyWith(progress: i);
+        }
       }
 
-      // Simulate processing
-      state = state.copyWith(status: UploadStatus.processing);
-      await Future.delayed(const Duration(seconds: 1));
-
-      final statement = BankStatement(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        uploadDate: DateTime.now(),
-        fileName: fileName,
-        filePath: filePath,
-        transactionCount: 0,
-        isProcessed: false,
-      );
-
+      // Upload statement
       state = state.copyWith(
-        status: UploadStatus.success,
-        statements: [...state.statements, statement],
-        progress: null,
+        status: UploadStatus.processing,
+        progress: 0.9,
       );
+
+      final response = await _uploadService.uploadStatement(
+        filePath: filePath,
+        fileName: fileName,
+        fileBytes: fileBytes,
+        profileName: profileName,
+        profileDescription: profileDescription,
+        accountType: accountType,
+        bankName: bankName,
+        color: color,
+        icon: icon,
+      );
+
+      // Get full statement details to include profile fields
+      final fullStatement = await _uploadService.getStatement(response.id);
+      
+      // Use the full statement which includes all profile fields
+      final statement = fullStatement;
+
+      // Add statement to list immediately
+      state = state.copyWith(
+        statements: [...state.statements, statement],
+      );
+
+      // Poll for processing status if still processing
+      if (response.status == 'processing') {
+        await _pollForProcessingStatus(response.id);
+      } else {
+        // Already processed, reload statements to get latest data
+        await loadStatements();
+        state = state.copyWith(
+          status: UploadStatus.success,
+          progress: null,
+        );
+      }
     } catch (e) {
+      print('Upload error: $e');
       state = state.copyWith(
         status: UploadStatus.error,
         errorMessage: e.toString(),
         progress: null,
       );
     }
+  }
+
+  /// Poll for processing status until statement is processed
+  Future<void> _pollForProcessingStatus(String statementId) async {
+    const maxAttempts = 30; // Poll for up to 30 seconds
+    int attempts = 0;
+
+    while (attempts < maxAttempts) {
+      await Future.delayed(const Duration(seconds: 2)); // Poll every 2 seconds
+      attempts++;
+
+      try {
+        // Get statement details directly
+        final statement = await _uploadService.getStatement(statementId);
+
+        if (statement.isProcessed) {
+          // Reload all statements to get the latest list
+          await loadStatements();
+          
+          // Get the updated statement from the list
+          final updatedStatements = state.statements;
+          final updatedStatement = updatedStatements.firstWhere(
+            (s) => s.id == statementId,
+            orElse: () => statement,
+          );
+          
+          state = state.copyWith(
+            status: UploadStatus.success,
+            statements: updatedStatements,
+            progress: null,
+          );
+          
+          print('Statement $statementId processed successfully with ${updatedStatement.transactionCount} transactions');
+          return;
+        }
+      } catch (e) {
+        // Continue polling on error
+        print('Error polling for status: $e');
+      }
+    }
+
+    // Timeout - mark as error
+    state = state.copyWith(
+      status: UploadStatus.error,
+      errorMessage: 'Processing timeout',
+      progress: null,
+    );
   }
 
   void resetStatus() {
@@ -82,15 +188,40 @@ class UploadNotifier extends StateNotifier<UploadState> {
     );
   }
 
-  void removeStatement(String id) {
-    state = state.copyWith(
-      statements: state.statements.where((s) => s.id != id).toList(),
-    );
+  Future<void> removeStatement(String id) async {
+    try {
+      await _uploadService.deleteStatement(id);
+      state = state.copyWith(
+        statements: state.statements.where((s) => s.id != id).toList(),
+      );
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
   }
 }
 
 final uploadProvider =
     StateNotifierProvider<UploadNotifier, UploadState>((ref) {
-  return UploadNotifier();
+  // Only watch auth state to get token, don't recreate provider on every change
+  final authState = ref.read(authProvider);
+  final apiService = ApiService();
+  
+  if (authState.accessToken != null) {
+    apiService.setAuthToken(authState.accessToken!);
+  }
+  
+  // Set token refresh callback to automatically refresh tokens on 401 errors
+  apiService.setTokenRefreshCallback(() async {
+    final authNotifier = ref.read(authProvider.notifier);
+    final refreshed = await authNotifier.refreshAccessToken();
+    if (refreshed) {
+      final newAuthState = ref.read(authProvider);
+      return newAuthState.accessToken;
+    }
+    return null;
+  });
+  
+  final uploadService = UploadService(apiService: apiService);
+  return UploadNotifier(uploadService);
 });
 

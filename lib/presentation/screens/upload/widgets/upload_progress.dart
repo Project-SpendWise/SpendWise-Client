@@ -59,45 +59,139 @@ class _StatementItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayName = statement.profileName ?? statement.fileName;
+    final hasProfileInfo = statement.profileName != null || 
+                          statement.bankName != null ||
+                          statement.accountType != null;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: AppConstants.spacingLG),
-      child: Row(
-        children: [
-          Icon(
-            Icons.description,
-            color: Theme.of(context).colorScheme.primary,
+      child: Container(
+        padding: const EdgeInsets.all(AppConstants.spacingMD),
+        decoration: BoxDecoration(
+          color: statement.color != null 
+              ? _parseColor(statement.color!).withOpacity(0.1)
+              : Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppConstants.radiusMD),
+          border: Border.all(
+            color: statement.color != null 
+                ? _parseColor(statement.color!).withOpacity(0.3)
+                : Theme.of(context).colorScheme.outline.withOpacity(0.2),
           ),
-          const SizedBox(width: AppConstants.spacingMD),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  statement.fileName,
-                  style: AppTextStyles.bodyMedium,
+        ),
+        child: Row(
+          children: [
+            // Color indicator or icon
+            if (statement.color != null)
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _parseColor(statement.color!),
+                  shape: BoxShape.circle,
                 ),
-                Text(
-                  DateFormatter.formatShort(statement.uploadDate),
-                  style: AppTextStyles.bodySmall,
-                ),
-              ],
+                child: statement.icon != null
+                    ? Icon(
+                        _getIcon(statement.icon!),
+                        color: Colors.white,
+                        size: 20,
+                      )
+                    : null,
+              )
+            else
+              Icon(
+                Icons.description,
+                color: Theme.of(context).colorScheme.primary,
+                size: 24,
+              ),
+            const SizedBox(width: AppConstants.spacingMD),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          displayName,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (statement.isDefault)
+                        Icon(
+                          Icons.star,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                    ],
+                  ),
+                  if (hasProfileInfo) ...[
+                    const SizedBox(height: 4),
+                    if (statement.bankName != null)
+                      Text(
+                        statement.bankName!,
+                        style: AppTextStyles.bodySmall,
+                      ),
+                    if (statement.accountType != null)
+                      Text(
+                        statement.accountType!,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                        ),
+                      ),
+                  ] else
+                    Text(
+                      DateFormatter.formatShort(statement.uploadDate),
+                      style: AppTextStyles.bodySmall,
+                    ),
+                ],
+              ),
             ),
-          ),
-          if (statement.isProcessed)
-            Icon(
-              Icons.check_circle,
-              color: Theme.of(context).colorScheme.primary,
-              size: 20,
-            )
-          else
-            Icon(
-              Icons.pending,
-              color: Colors.grey,
-              size: 20,
-            ),
-        ],
+            const SizedBox(width: AppConstants.spacingSM),
+            if (statement.isProcessed)
+              Icon(
+                Icons.check_circle,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              )
+            else
+              Icon(
+                Icons.pending,
+                color: Colors.grey,
+                size: 20,
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  Color _parseColor(String colorString) {
+    try {
+      return Color(int.parse(colorString.replaceFirst('#', '0xFF')));
+    } catch (e) {
+      return Colors.blue;
+    }
+  }
+
+  IconData _getIcon(String iconName) {
+    // Map common icon names to Material icons
+    switch (iconName.toLowerCase()) {
+      case 'wallet':
+        return Icons.account_balance_wallet;
+      case 'bank':
+        return Icons.account_balance;
+      case 'card':
+        return Icons.credit_card;
+      case 'savings':
+        return Icons.savings;
+      case 'investment':
+        return Icons.trending_up;
+      default:
+        return Icons.account_balance_wallet;
+    }
   }
 }
 

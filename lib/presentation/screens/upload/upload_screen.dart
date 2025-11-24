@@ -3,7 +3,7 @@ import 'package:spendwise_client/l10n/app_localizations.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../widgets/layout/app_scaffold.dart';
 import 'widgets/file_picker_button.dart';
-import 'widgets/file_list_widget.dart';
+import 'widgets/upload_progress.dart';
 
 class UploadScreen extends StatelessWidget {
   const UploadScreen({super.key});
@@ -21,7 +21,7 @@ class UploadScreen extends StatelessWidget {
           children: [
             FilePickerButton(),
             SizedBox(height: AppConstants.spacingXL),
-            FileListWidget(),
+            UploadProgress(),
           ],
         ),
       ),

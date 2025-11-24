@@ -6,9 +6,11 @@ import 'dart:io';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../providers/file_provider.dart';
+import '../../../../providers/upload_provider.dart';
 import '../../../../providers/transaction_provider.dart';
-import '../../../../data/mock/mock_data.dart';
+import '../../../../data/services/transaction_service.dart';
+import '../../../../data/services/api_service.dart';
+import '../../../../providers/auth_provider.dart';
 import '../../../widgets/common/custom_button.dart';
 import '../../../widgets/common/custom_card.dart';
 
@@ -44,34 +46,38 @@ class FilePickerButton extends ConsumerWidget {
       }
 
       try {
-        // Upload file using file service
-        final fileNotifier = ref.read(fileListProvider.notifier);
-        final uploadedFile = await fileNotifier.uploadFile(
-          filePath: filePath,
-          fileName: fileName,
-          fileBytes: fileBytes,
-        );
+        // Upload statement using upload provider
+        final uploadNotifier = ref.read(uploadProvider.notifier);
+        await uploadNotifier.uploadFile(filePath, fileName);
 
-        if (uploadedFile != null && context.mounted) {
-          // Add mock transactions (until backend processes the file)
-          final mockTransactions = MockData.getMockTransactions();
-          final transactionNotifier = ref.read(transactionProvider.notifier);
-          transactionNotifier.addTransactions(mockTransactions);
+        // Check final status after upload completes
+        if (context.mounted) {
+          // Wait a bit for state to update
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          final uploadState = ref.read(uploadProvider);
+          
+          if (uploadState.status == UploadStatus.success) {
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(l10n.fileProcessed),
+                backgroundColor: AppColors.success,
+                duration: const Duration(seconds: 2),
+              ),
+            );
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.fileProcessed),
-              backgroundColor: AppColors.success,
-            ),
-          );
-        } else if (context.mounted) {
-          final error = ref.read(fileListProvider).error;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error ?? l10n.error),
-              backgroundColor: AppColors.error,
-            ),
-          );
+            // Load transactions after upload completes
+            await _loadTransactionsAfterUpload(ref);
+          } else if (uploadState.status == UploadStatus.error) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(uploadState.errorMessage ?? l10n.error),
+                backgroundColor: AppColors.error,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
         }
       } catch (e) {
         if (context.mounted) {
@@ -86,10 +92,47 @@ class FilePickerButton extends ConsumerWidget {
     }
   }
 
+  /// Load transactions after file upload completes
+  Future<void> _loadTransactionsAfterUpload(WidgetRef ref) async {
+    try {
+      final authState = ref.read(authProvider);
+      if (authState.accessToken == null) return;
+
+      final apiService = ApiService();
+      apiService.setAuthToken(authState.accessToken!);
+      
+      // Set token refresh callback
+      apiService.setTokenRefreshCallback(() async {
+        final authNotifier = ref.read(authProvider.notifier);
+        final refreshed = await authNotifier.refreshAccessToken();
+        if (refreshed) {
+          final newAuthState = ref.read(authProvider);
+          return newAuthState.accessToken;
+        }
+        return null;
+      });
+      
+      final transactionService = TransactionService(apiService: apiService);
+      
+      // Load ALL transactions (not filtered by statementId) so home/analytics show data
+      final transactions = await transactionService.getTransactions();
+      
+      final transactionNotifier = ref.read(transactionProvider.notifier);
+      // Clear old data and add new transactions
+      transactionNotifier.clearTransactions();
+      transactionNotifier.addTransactions(transactions);
+      
+      print('Loaded ${transactions.length} transactions after upload');
+    } catch (e) {
+      print('Failed to load transactions after upload: $e');
+      print('Error details: ${e.toString()}');
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final fileState = ref.watch(fileListProvider);
+    final uploadState = ref.watch(uploadProvider);
 
     return CustomCard(
       padding: const EdgeInsets.all(AppConstants.spacingXL),
@@ -118,10 +161,12 @@ class FilePickerButton extends ConsumerWidget {
           CustomButton(
             text: l10n.selectFile,
             icon: Icons.file_upload,
-            onPressed: fileState.isLoading
+            onPressed: uploadState.status == UploadStatus.uploading || 
+                      uploadState.status == UploadStatus.processing
                 ? null
                 : () => _pickFile(ref, context),
-            isLoading: fileState.isLoading,
+            isLoading: uploadState.status == UploadStatus.uploading || 
+                      uploadState.status == UploadStatus.processing,
           ),
         ],
       ),

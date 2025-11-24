@@ -25,6 +25,9 @@ class UploadStatementResponse {
   final DateTime uploadDate;
   final String status;
   final int? transactionCount;
+  final DateTime? statementPeriodStart;
+  final DateTime? statementPeriodEnd;
+  final bool isProcessed;
 
   UploadStatementResponse({
     required this.id,
@@ -32,6 +35,9 @@ class UploadStatementResponse {
     required this.uploadDate,
     required this.status,
     this.transactionCount,
+    this.statementPeriodStart,
+    this.statementPeriodEnd,
+    this.isProcessed = false,
   });
 
   factory UploadStatementResponse.fromJson(Map<String, dynamic> json) {
@@ -41,6 +47,13 @@ class UploadStatementResponse {
       uploadDate: DateTime.parse(json['uploadDate'] as String),
       status: json['status'] as String,
       transactionCount: json['transactionCount'] as int?,
+      statementPeriodStart: json['statementPeriodStart'] != null
+          ? DateTime.parse(json['statementPeriodStart'] as String)
+          : null,
+      statementPeriodEnd: json['statementPeriodEnd'] != null
+          ? DateTime.parse(json['statementPeriodEnd'] as String)
+          : null,
+      isProcessed: json['isProcessed'] as bool? ?? json['status'] == 'processed',
     );
   }
 }
