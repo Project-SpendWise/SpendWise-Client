@@ -12,6 +12,11 @@ class UploadService {
       : _apiService = apiService ?? ApiService(),
         _useMockData = useMockData;
 
+  /// Update the auth token on the underlying ApiService
+  void setAuthToken(String token) {
+    _apiService.setAuthToken(token);
+  }
+
   /// Upload a PDF bank statement file with optional profile metadata
   Future<UploadStatementResponse> uploadStatement({
     required String filePath,
@@ -73,6 +78,7 @@ class UploadService {
     }
 
     // Real API call
+    // Backend expects field name "file" for multipart upload
     final response = await _apiService.postMultipart<Map<String, dynamic>>(
       '/statements/upload',
       'file',
@@ -82,9 +88,23 @@ class UploadService {
       fields: fields.isNotEmpty ? fields : null,
     );
     
-    // Response format: { "statement": {...} } or direct statement object
-    final statementData = response['statement'] as Map<String, dynamic>? ?? response;
-    return UploadStatementResponse.fromJson(statementData);
+    // Response format from backend: { "success": true, "data": { "id": "...", "fileName": "...", ... } }
+    // ApiService._handleResponse() already extracts the "data" field, so response is the statement object directly
+    // The backend returns the statement directly in the data field, not nested
+    try {
+      return UploadStatementResponse.fromJson(response);
+    } catch (e) {
+      // If parsing fails, try nested format (backward compatibility)
+      final statementData = response['statement'] as Map<String, dynamic>?;
+      if (statementData != null) {
+        return UploadStatementResponse.fromJson(statementData);
+      }
+      // If still fails, rethrow with more context
+      throw ApiError(
+        message: 'Failed to parse upload response: $e. Response: $response',
+        statusCode: null,
+      );
+    }
   }
 
   /// Get list of uploaded statements

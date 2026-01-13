@@ -28,11 +28,16 @@ class WeeklyPatternsChart extends ConsumerWidget {
       );
     }
 
-    final maxValue = patterns.map((p) => p.averageSpending).reduce((a, b) => a > b ? a : b) * 1.2;
-    final maxY = maxValue;
+    // Safely calculate max value
+    final maxValue = patterns.isEmpty || patterns.every((p) => p.averageSpending == 0)
+        ? 1000.0
+        : patterns.map((p) => p.averageSpending).reduce((a, b) => a > b ? a : b) * 1.2;
+    final maxY = maxValue > 0 ? maxValue : 1000.0; // Ensure maxY is never zero
 
     // Find day with most spending
-    final maxDay = patterns.reduce((a, b) => a.averageSpending > b.averageSpending ? a : b);
+    final maxDay = patterns.isEmpty
+        ? null
+        : patterns.reduce((a, b) => a.averageSpending > b.averageSpending ? a : b);
 
     final dayNames = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
@@ -43,7 +48,7 @@ class WeeklyPatternsChart extends ConsumerWidget {
         barRods: [
           BarChartRodData(
             toY: pattern.averageSpending,
-            color: pattern.dayOfWeek == maxDay.dayOfWeek
+            color: maxDay != null && pattern.dayOfWeek == maxDay.dayOfWeek
                 ? AppColors.primary
                 : AppColors.primary.withOpacity(0.6),
             width: 20,
@@ -65,7 +70,7 @@ class WeeklyPatternsChart extends ConsumerWidget {
                 l10n.weeklyPatterns,
                 style: AppTextStyles.h3,
               ),
-              if (maxDay.averageSpending > 0)
+              if (maxDay != null && maxDay.averageSpending > 0)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
@@ -104,13 +109,16 @@ class WeeklyPatternsChart extends ConsumerWidget {
                     tooltipRoundedRadius: 8,
                     tooltipPadding: const EdgeInsets.all(8),
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final pattern = patterns[group.x.toInt()];
-                      return BarTooltipItem(
-                        '${dayNames[pattern.dayOfWeek - 1]}\n${DateFormatter.formatCurrency(pattern.averageSpending)}',
-                        AppTextStyles.bodySmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      );
+                      if (group.x.toInt() >= 0 && group.x.toInt() < patterns.length) {
+                        final pattern = patterns[group.x.toInt()];
+                        return BarTooltipItem(
+                          '${dayNames[pattern.dayOfWeek - 1]}\n${DateFormatter.formatCurrency(pattern.averageSpending)}',
+                          AppTextStyles.bodySmall.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      }
+                      return BarTooltipItem('', AppTextStyles.bodySmall);
                     },
                   ),
                 ),
@@ -150,7 +158,7 @@ class WeeklyPatternsChart extends ConsumerWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxY / 4,
+                  horizontalInterval: maxY > 0 ? maxY / 4 : 250.0, // Ensure interval is never zero
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: AppColors.border.withOpacity(0.3),

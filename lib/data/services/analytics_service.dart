@@ -56,13 +56,16 @@ class AnalyticsService {
     final queryString = Uri(queryParameters: queryParams).query;
     final endpoint = '/analytics/categories${queryString.isNotEmpty ? '?$queryString' : ''}';
 
+    // Backend returns: { "success": true, "data": [...] }
+    // ApiService extracts data, but wraps arrays in {'items': [...]}
     final response = await _apiService.get<Map<String, dynamic>>(
       endpoint,
       (json) => json,
     );
 
-    // Response format: { "categories": [...], "totalExpenses": ... }
-    final categoriesList = response['categories'] as List<dynamic>;
+    // Response format: { "items": [...] } (wrapped by ApiService) or direct array
+    final categoriesList = response['items'] as List<dynamic>? ?? 
+                          (response['categories'] as List<dynamic>? ?? []);
     return categoriesList.map((json) => CategoryBreakdownResponse.fromJson(json as Map<String, dynamic>)).toList();
   }
 
@@ -118,9 +121,22 @@ class AnalyticsService {
       (json) => json,
     );
 
-    // Response format: { "trends": [...], "period": "day" }
-    final trendsList = response['trends'] as List<dynamic>;
-    return trendsList.map((json) => SpendingTrendsResponse.fromJson(json as Map<String, dynamic>)).toList();
+    // Backend returns: { "success": true, "data": [{ "date": ..., "income": ..., "expenses": ..., "savings": ... }] }
+    // ApiService wraps arrays in {'items': [...]}
+    final trendsList = response['items'] as List<dynamic>? ?? 
+                      (response['trends'] as List<dynamic>? ?? []);
+    
+    // Backend format: { "date": "...", "income": ..., "expenses": ..., "savings": ... }
+    // Frontend expects: { "date": "...", "totalAmount": ..., "transactionCount": ... }
+    return trendsList.map((json) {
+      final item = json as Map<String, dynamic>;
+      // Convert backend format to frontend format
+      return SpendingTrendsResponse(
+        date: DateTime.parse(item['date'] as String),
+        totalAmount: (item['expenses'] as num? ?? 0.0).toDouble(),
+        transactionCount: 0, // Backend doesn't provide this, calculate if needed
+      );
+    }).toList();
   }
 
   /// Get financial insights
@@ -216,9 +232,63 @@ class AnalyticsService {
       (json) => json,
     );
 
-    // Response format: { "insights": [...] }
-    final insightsList = response['insights'] as List<dynamic>;
-    return insightsList.map((json) => FinancialInsight.fromJson(json as Map<String, dynamic>)).toList();
+    // Backend returns: { "success": true, "data": { "savingsRate": ..., "topSpendingCategory": ..., ... } }
+    // ApiService extracts data, so response is the object directly
+    // Convert backend object format to frontend array format
+    final insights = <FinancialInsight>[];
+    
+    if (response.containsKey('savingsRate')) {
+      final savingsRate = (response['savingsRate'] as num?)?.toDouble() ?? 0.0;
+      if (savingsRate < 10 && savingsRate >= 0) {
+        insights.add(FinancialInsight(
+          type: 'low_savings_rate',
+          title: 'Low Savings Rate',
+          message: 'You are saving ${savingsRate.toStringAsFixed(1)}% of your income. You should aim for at least 20%.',
+          severity: 'warning',
+        ));
+      } else if (savingsRate < 0) {
+        insights.add(FinancialInsight(
+          type: 'excessive_spending',
+          title: 'Excessive Spending',
+          message: 'Your expenses exceed your income. We recommend making a budget plan.',
+          severity: 'error',
+        ));
+      } else if (savingsRate >= 20) {
+        insights.add(FinancialInsight(
+          type: 'great_savings',
+          title: 'Great!',
+          message: 'Your savings rate is at an ideal level. Keep it up!',
+          severity: 'success',
+        ));
+      }
+    }
+    
+    if (response.containsKey('topSpendingCategory')) {
+      final topCategory = response['topSpendingCategory'] as String?;
+      if (topCategory != null) {
+        insights.add(FinancialInsight(
+          type: 'highest_spending_category',
+          title: 'Highest Spending Category',
+          message: 'You spend the most in $topCategory category. You can review your expenses in this category.',
+          severity: 'info',
+        ));
+      }
+    }
+    
+    // Add recommendations if available
+    final recommendations = response['recommendations'] as List<dynamic>?;
+    if (recommendations != null) {
+      for (var rec in recommendations) {
+        insights.add(FinancialInsight(
+          type: 'recommendation',
+          title: 'Recommendation',
+          message: rec as String,
+          severity: 'info',
+        ));
+      }
+    }
+    
+    return insights;
   }
 
   /// Get monthly trends
@@ -244,8 +314,10 @@ class AnalyticsService {
       (json) => json,
     );
 
-    // Response format: { "monthlyData": [...] }
-    final monthlyData = response['monthlyData'] as List<dynamic>;
+    // Backend returns: { "success": true, "data": [...] }
+    // ApiService wraps arrays in {'items': [...]}
+    final monthlyData = response['items'] as List<dynamic>? ?? 
+                       (response['monthlyData'] as List<dynamic>? ?? []);
     return monthlyData.map((e) => e as Map<String, dynamic>).toList();
   }
 

@@ -38,8 +38,9 @@ class UploadState {
 
 class UploadNotifier extends StateNotifier<UploadState> {
   final UploadService _uploadService;
+  final Ref _ref;
 
-  UploadNotifier(this._uploadService) : super(UploadState()) {
+  UploadNotifier(this._uploadService, this._ref) : super(UploadState()) {
     loadStatements();
   }
 
@@ -81,6 +82,12 @@ class UploadNotifier extends StateNotifier<UploadState> {
         if (state.status == UploadStatus.uploading) {
           state = state.copyWith(progress: i);
         }
+      }
+
+      // Update auth token before upload (in case it changed)
+      final authState = _ref.read(authProvider);
+      if (authState.accessToken != null) {
+        _uploadService.setAuthToken(authState.accessToken!);
       }
 
       // Upload statement
@@ -202,10 +209,11 @@ class UploadNotifier extends StateNotifier<UploadState> {
 
 final uploadProvider =
     StateNotifierProvider<UploadNotifier, UploadState>((ref) {
-  // Only watch auth state to get token, don't recreate provider on every change
+  // Read auth state to get initial token
   final authState = ref.read(authProvider);
   final apiService = ApiService();
   
+  // Set initial token
   if (authState.accessToken != null) {
     apiService.setAuthToken(authState.accessToken!);
   }
@@ -216,12 +224,16 @@ final uploadProvider =
     final refreshed = await authNotifier.refreshAccessToken();
     if (refreshed) {
       final newAuthState = ref.read(authProvider);
+      // Update token on the apiService instance
+      if (newAuthState.accessToken != null) {
+        apiService.setAuthToken(newAuthState.accessToken!);
+      }
       return newAuthState.accessToken;
     }
     return null;
   });
   
   final uploadService = UploadService(apiService: apiService);
-  return UploadNotifier(uploadService);
+  return UploadNotifier(uploadService, ref);
 });
 

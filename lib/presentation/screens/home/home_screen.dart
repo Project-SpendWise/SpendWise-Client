@@ -7,12 +7,10 @@ import '../../../core/utils/app_initializer.dart';
 import '../../../providers/profile_provider.dart';
 import '../../widgets/layout/app_scaffold.dart';
 import 'widgets/overview_cards.dart';
-import 'widgets/expense_chart.dart';
 import 'widgets/recent_transactions.dart';
 import 'widgets/spending_trends_card.dart';
 import 'widgets/monthly_comparison_card.dart';
 import 'widgets/quick_insights_card.dart';
-import 'widgets/top_categories_card.dart';
 import 'widgets/quick_stats_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -85,20 +83,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const MonthlyComparisonCard(),
             const SizedBox(height: AppConstants.spacingXL),
 
-            // Top Categories
-            const TopCategoriesCard(),
-            const SizedBox(height: AppConstants.spacingXL),
-
             // Quick Stats
             const QuickStatsCard(),
             const SizedBox(height: AppConstants.spacingXL),
 
             // Quick Insights
             const QuickInsightsCard(),
-            const SizedBox(height: AppConstants.spacingXL),
-
-            // Expense Chart
-            const ExpenseChart(),
             const SizedBox(height: AppConstants.spacingXL),
 
             // Recent Transactions

@@ -3,7 +3,7 @@ class ApiConstants {
   // Base URL - Update this to your backend URL
   // Development: http://localhost:5000/api
   // Production: Update when deploying
-  static const String baseUrl = 'http://192.168.1.103:5000/api';
+  static const String baseUrl = 'http://192.168.1.107:5000/api';
   
   // Authentication Endpoints
   static const String authRegister = '/auth/register';

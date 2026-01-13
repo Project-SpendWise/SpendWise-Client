@@ -10,7 +10,12 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
   }
 
   void addTransactions(List<Transaction> transactions) {
+    print('TransactionProvider.addTransactions: Adding ${transactions.length} transactions');
+    if (transactions.isNotEmpty) {
+      print('  Sample transaction: id=${transactions.first.id}, type=${transactions.first.type}, category=${transactions.first.category}, amount=${transactions.first.amount}');
+    }
     state = [...state, ...transactions];
+    print('  Total transactions in provider: ${state.length}');
   }
 
   void removeTransaction(String id) {
@@ -49,16 +54,58 @@ class TransactionNotifier extends StateNotifier<List<Transaction>> {
 
   List<Category> get categoryBreakdown {
     final expenses = expensesByCategory;
-    return Category.defaultCategories.map((category) {
-      return Category(
-        id: category.id,
-        name: category.name,
-        color: category.color,
-        totalAmount: expenses[category.name] ?? 0.0,
-        icon: category.icon,
-      );
-    }).where((c) => c.totalAmount > 0).toList()
+    
+    // Debug logging
+    print('TransactionProvider.categoryBreakdown:');
+    print('  Total transactions: ${state.length}');
+    print('  Expense transactions: ${state.where((t) => t.type == TransactionType.expense).length}');
+    print('  Expenses with categories: ${state.where((t) => t.type == TransactionType.expense && t.category != null).length}');
+    print('  Expenses by category map: $expenses');
+    
+    // First, try to match with default categories
+    final matchedCategories = <String, Category>{};
+    final defaultCategories = Category.defaultCategories;
+    
+    for (var defaultCat in defaultCategories) {
+      if (expenses.containsKey(defaultCat.name)) {
+        matchedCategories[defaultCat.name] = Category(
+          id: defaultCat.id,
+          name: defaultCat.name,
+          color: defaultCat.color,
+          totalAmount: expenses[defaultCat.name]!,
+          icon: defaultCat.icon,
+        );
+      }
+    }
+    
+    // Then, add any categories from backend that don't match default categories
+    // Use "other" category styling for unknown categories
+    final otherCategory = defaultCategories.firstWhere((c) => c.id == 'other');
+    final allCategoryNames = expenses.keys.toSet();
+    
+    for (var categoryName in allCategoryNames) {
+      if (!matchedCategories.containsKey(categoryName)) {
+        // Use a color from the chart colors based on hash of category name
+        final colorIndex = categoryName.hashCode.abs() % 8;
+        matchedCategories[categoryName] = Category(
+          id: categoryName.toLowerCase().replaceAll(' ', '_'),
+          name: categoryName,
+          color: defaultCategories[colorIndex].color,
+          totalAmount: expenses[categoryName]!,
+          icon: otherCategory.icon,
+        );
+      }
+    }
+    
+    final result = matchedCategories.values.toList()
       ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+    
+    print('  Final category breakdown count: ${result.length}');
+    if (result.isNotEmpty) {
+      print('  Top category: ${result.first.name} - ${result.first.totalAmount}');
+    }
+    
+    return result;
   }
 
   List<Transaction> getRecentTransactions(int count) {

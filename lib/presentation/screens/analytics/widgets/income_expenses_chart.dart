@@ -44,12 +44,16 @@ class IncomeExpensesChart extends ConsumerWidget {
 
     // Calculate max and min values including savings
     final allValues = monthlyData.expand((m) => [m.income, m.expenses, m.savings]).toList();
-    final maxValue = allValues.reduce((a, b) => a > b ? a : b);
-    final minValue = allValues.reduce((a, b) => a < b ? a : b);
+    final maxValue = allValues.isEmpty
+        ? 1000.0
+        : allValues.reduce((a, b) => a > b ? a : b);
+    final minValue = allValues.isEmpty
+        ? 0.0
+        : allValues.reduce((a, b) => a < b ? a : b);
     
     // Set minY to 0 or slightly below if there are negative savings
     final minY = minValue < 0 ? minValue * 1.2 : 0.0;
-    final maxY = maxValue * 1.2;
+    final maxY = maxValue > 0 ? maxValue * 1.2 : 1000.0; // Ensure maxY is never zero
 
     return CustomCard(
       padding: const EdgeInsets.all(AppConstants.spacingLG),
@@ -77,7 +81,7 @@ class IncomeExpensesChart extends ConsumerWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: (maxY - minY) / 5,
+                  horizontalInterval: (maxY - minY) > 0 ? (maxY - minY) / 5 : 200.0, // Ensure interval is never zero
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: AppColors.border.withOpacity(0.3),

@@ -57,7 +57,7 @@ class _CategoryTrendsChartState extends ConsumerState<CategoryTrendsChart> {
         }
       }
     }
-    maxValue = maxValue * 1.2;
+    maxValue = maxValue > 0 ? maxValue * 1.2 : 1000.0; // Ensure maxValue is never zero
 
     return CustomCard(
       padding: const EdgeInsets.all(AppConstants.spacingLG),
@@ -132,7 +132,7 @@ class _CategoryTrendsChartState extends ConsumerState<CategoryTrendsChart> {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxValue / 5,
+                  horizontalInterval: maxValue > 0 ? maxValue / 5 : 200.0, // Ensure interval is never zero
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: AppColors.border.withOpacity(0.3),

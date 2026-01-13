@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/services/transaction_service.dart';
 import '../../data/services/budget_service.dart';
 import '../../data/services/api_service.dart';
+import '../../data/models/transaction.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -41,24 +42,65 @@ class AppInitializer {
       final budgetService = BudgetService(apiService: apiService);
 
       // Load transactions from API (filtered by selected profile if any)
+      print('=== AppInitializer: Loading transactions ===');
+      print('StatementId: $statementId');
       final transactions = await transactionService.getTransactions(
         statementId: statementId,
       );
+      print('Loaded ${transactions.length} transactions from API');
+      
+      if (transactions.isNotEmpty) {
+        // Log sample transaction
+        final sample = transactions.first;
+        print('Sample transaction:');
+        print('  id: ${sample.id}');
+        print('  type: ${sample.type}');
+        print('  category: ${sample.category}');
+        print('  amount: ${sample.amount}');
+        print('  date: ${sample.date}');
+        print('  description: ${sample.description}');
+        
+        // Log transaction breakdown
+        final incomeCount = transactions.where((t) => t.type == TransactionType.income).length;
+        final expenseCount = transactions.where((t) => t.type == TransactionType.expense).length;
+        final expensesWithCategories = transactions.where((t) => t.type == TransactionType.expense && t.category != null).length;
+        print('Transaction breakdown:');
+        print('  Income: $incomeCount');
+        print('  Expenses: $expenseCount');
+        print('  Expenses with categories: $expensesWithCategories');
+        
+        // Log unique categories
+        final uniqueCategories = transactions.where((t) => t.category != null).map((t) => t.category!).toSet();
+        print('Unique categories: $uniqueCategories');
+      } else {
+        print('WARNING: No transactions loaded!');
+        print('This could mean:');
+        print('  1. No file has been uploaded yet');
+        print('  2. File hasn\'t been processed (check statement status)');
+        print('  3. Backend returned empty array');
+        print('  4. statementId filter is too restrictive');
+      }
+      
       final transactionNotifier = ref.read(transactionProvider.notifier);
       transactionNotifier.clearTransactions();
       transactionNotifier.addTransactions(transactions);
+      print('=== AppInitializer: Transactions added to provider ===');
 
       // Load budgets from API
+      print('Loading budgets...');
       final budgets = await budgetService.getBudgets();
+      print('Loaded ${budgets.length} budgets');
+      
       final budgetNotifier = ref.read(budgetProvider.notifier);
       budgetNotifier.clearBudgets();
       for (var budget in budgets) {
         budgetNotifier.addBudget(budget);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       // If loading fails, continue without data
       // User can retry by refreshing
       print('Failed to load initial data: $e');
+      print('Stack trace: $stackTrace');
     }
   }
 

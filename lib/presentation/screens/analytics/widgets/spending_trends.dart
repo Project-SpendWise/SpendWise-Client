@@ -45,9 +45,16 @@ class SpendingTrends extends ConsumerWidget {
       spots.add(FlSpot((6 - i).toDouble(), dayTotal));
     }
 
-    final maxY = spots.isNotEmpty && spots.map((s) => s.y).reduce((a, b) => a > b ? a : b) > 0
-        ? spots.map((s) => s.y).reduce((a, b) => a > b ? a : b) * 1.2
-        : 1000.0;
+    // Safely calculate maxY
+    double maxY = 1000.0;
+    if (spots.isNotEmpty) {
+      final maxSpotValue = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
+      if (maxSpotValue > 0) {
+        maxY = maxSpotValue * 1.2;
+      }
+    }
+    // Ensure maxY is never zero
+    if (maxY <= 0) maxY = 1000.0;
 
     return CustomCard(
       padding: const EdgeInsets.all(AppConstants.spacingLG),
@@ -68,7 +75,7 @@ class SpendingTrends extends ConsumerWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxY / 4,
+                  horizontalInterval: maxY > 0 ? maxY / 4 : 250.0, // Ensure interval is never zero
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: AppColors.border.withOpacity(0.3),

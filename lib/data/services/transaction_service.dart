@@ -79,8 +79,37 @@ class TransactionService {
     );
 
     // Response format: { "transactions": [...], "total": ..., "limit": ..., "offset": ... }
-    final transactionsList = response['transactions'] as List<dynamic>;
-    return transactionsList.map((json) => _transactionFromJson(json as Map<String, dynamic>)).toList();
+    print('TransactionService: Raw response keys: ${response.keys.toList()}');
+    final transactionsList = response['transactions'] as List<dynamic>? ?? [];
+    print('TransactionService: Received ${transactionsList.length} transactions from API');
+    
+    if (transactionsList.isEmpty) {
+      print('TransactionService: WARNING - No transactions returned from API');
+      print('TransactionService: Full response: $response');
+    } else {
+      // Log first transaction for debugging
+      final firstTx = transactionsList.first as Map<String, dynamic>;
+      print('TransactionService: Sample transaction: $firstTx');
+      print('TransactionService: Transaction has type: ${firstTx.containsKey('type')}, category: ${firstTx.containsKey('category')}');
+    }
+    
+    final parsedTransactions = transactionsList.map((json) {
+      try {
+        return _transactionFromJson(json as Map<String, dynamic>);
+      } catch (e) {
+        print('TransactionService: Error parsing transaction: $json');
+        print('TransactionService: Error: $e');
+        rethrow;
+      }
+    }).toList();
+    
+    // Count transactions with categories
+    final expensesWithCategories = parsedTransactions.where((t) => 
+      t.type == TransactionType.expense && t.category != null
+    ).length;
+    print('TransactionService: Expenses with categories: $expensesWithCategories out of ${parsedTransactions.length} total');
+    
+    return parsedTransactions;
   }
 
   Transaction _transactionFromJson(Map<String, dynamic> json) {

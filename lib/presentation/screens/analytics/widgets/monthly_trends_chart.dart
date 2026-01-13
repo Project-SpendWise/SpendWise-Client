@@ -29,9 +29,12 @@ class MonthlyTrendsChart extends ConsumerWidget {
       );
     }
 
-    final maxValue = monthlyData.map((m) => math.max(m.income, m.expenses)).reduce((a, b) => math.max(a, b)) * 1.2;
+    // Safely calculate max value
+    final maxValue = monthlyData.isEmpty
+        ? 1000.0
+        : monthlyData.map((m) => math.max(m.income, m.expenses)).reduce((a, b) => math.max(a, b)) * 1.2;
     final minY = 0.0;
-    final maxY = maxValue;
+    final maxY = maxValue > 0 ? maxValue : 1000.0; // Ensure maxY is never zero
 
     // Prepare bar groups
     final barGroups = monthlyData.asMap().entries.map((entry) {
@@ -138,7 +141,7 @@ class MonthlyTrendsChart extends ConsumerWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxY / 5,
+                  horizontalInterval: maxY > 0 ? maxY / 5 : 200.0, // Ensure interval is never zero
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: AppColors.border.withOpacity(0.3),

@@ -112,10 +112,15 @@ class ApiService {
         Uri.parse(ApiConstants.buildUrl(endpoint)),
       );
 
+      // Set authorization header
       if (_authToken != null) {
         request.headers['Authorization'] = 'Bearer $_authToken';
       }
+      
+      // DO NOT set Content-Type header for multipart requests
+      // The http package will automatically set it with the correct boundary
 
+      // Add file to request
       request.files.add(
         http.MultipartFile.fromBytes(
           fieldName,
@@ -125,7 +130,7 @@ class ApiService {
       );
 
       // Add additional fields if provided
-      if (fields != null) {
+      if (fields != null && fields.isNotEmpty) {
         request.fields.addAll(fields);
       }
 
@@ -223,8 +228,18 @@ class ApiService {
       
       // Success response: extract data field
       if (json.containsKey('data')) {
-        final data = json['data'] as Map<String, dynamic>;
-        return fromJson(data);
+        final data = json['data'];
+        // Data can be Map, List, or other types
+        if (data is Map<String, dynamic>) {
+          return fromJson(data);
+        } else if (data is List) {
+          // For endpoints that return arrays directly in data field
+          // Wrap in a map so fromJson can process it
+          return fromJson({'items': data} as Map<String, dynamic>);
+        } else {
+          // For primitive types or other structures
+          return fromJson({'value': data} as Map<String, dynamic>);
+        }
       } else {
         // Some endpoints might return data directly
         return fromJson(json);

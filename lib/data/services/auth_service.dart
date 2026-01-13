@@ -202,8 +202,10 @@ class AuthService {
       (json) => json,
     );
 
-    final data = json['data'] as Map<String, dynamic>;
-    final userJson = data['user'] as Map<String, dynamic>;
+    // ApiService already extracts "data" field, so json is the data object
+    // Backend returns: { "success": true, "data": { "user": {...} } }
+    // After ApiService extraction: { "user": {...} }
+    final userJson = json['user'] as Map<String, dynamic>? ?? json;
     
     return User.fromJson(userJson);
   }
@@ -234,8 +236,10 @@ class AuthService {
       (json) => json,
     );
 
-    final data = json['data'] as Map<String, dynamic>;
-    final userJson = data['user'] as Map<String, dynamic>;
+    // ApiService already extracts "data" field, so json is the data object
+    // Backend returns: { "success": true, "data": { "user": {...} } }
+    // After ApiService extraction: { "user": {...} }
+    final userJson = json['user'] as Map<String, dynamic>? ?? json;
     
     return User.fromJson(userJson);
   }

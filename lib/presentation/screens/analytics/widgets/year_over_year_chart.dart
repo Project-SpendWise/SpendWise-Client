@@ -29,7 +29,11 @@ class YearOverYearChart extends ConsumerWidget {
       );
     }
 
-    final maxValue = comparisons.map((c) => math.max(c.currentYear, c.previousYear)).reduce((a, b) => a > b ? a : b) * 1.2;
+    // Safely calculate max value
+    final maxValue = comparisons.isEmpty || comparisons.every((c) => c.currentYear == 0 && c.previousYear == 0)
+        ? 1000.0
+        : (comparisons.map((c) => math.max(c.currentYear, c.previousYear)).reduce((a, b) => a > b ? a : b) * 1.2);
+    final safeMaxValue = maxValue > 0 ? maxValue : 1000.0; // Ensure maxValue is never zero
 
     // Prepare bar groups for grouped comparison
     final barGroups = comparisons.asMap().entries.map((entry) {
@@ -76,7 +80,7 @@ class YearOverYearChart extends ConsumerWidget {
             child: BarChart(
               BarChartData(
                 minY: 0,
-                maxY: maxValue,
+                maxY: safeMaxValue,
                 groupsSpace: 8,
                 barTouchData: BarTouchData(
                   enabled: true,
@@ -139,7 +143,7 @@ class YearOverYearChart extends ConsumerWidget {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxValue / 5,
+                  horizontalInterval: safeMaxValue > 0 ? safeMaxValue / 5 : 200.0, // Ensure interval is never zero
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: AppColors.border.withOpacity(0.3),
